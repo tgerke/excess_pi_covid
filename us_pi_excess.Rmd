@@ -46,20 +46,26 @@ knitr::opts_chunk$set(
   )
 )
 
-extrap.date <- as.Date(params$extrap.date)
-count.start.date <- as.Date(params$count.start.date)
-end.data.date <- as.Date(params$end.data.date)
-
-# for debugging
-# extrap.date <-  as.Date('2020-01-26')
-# count.start.date <- as.Date('2020-03-01')
-# end.data.date <- as.Date('2020-08-15')
-
-state.name2 <- c(state.name, "District of Columbia", "Puerto Rico", "United States", "New York City")
-state.abb2 <- c(state.abb, "DC", "PR", "US", "NYC")
-
+# for current debugging
+extrap.date <-  as.Date('2020-01-26')
+count.start.date <- as.Date('2020-03-01')
+end.data.date <- as.Date('2020-08-15')
+# uncomment below for rendering in production
+# extrap.date <- as.Date(params$extrap.date)
+# count.start.date <- as.Date(params$count.start.date)
+# end.data.date <- as.Date(params$end.data.date)
 last.date.format <-
   format(end.data.date, "%b %d, %Y")
+
+# some resources use variations on state names/abbreviations
+# define a more expansive state.names and state.abbs to handle
+state.names <- 
+  c(state.name, 
+    "District of Columbia", "Puerto Rico",
+    "United States", "New York City")
+state.abbs <-
+  c(state.abb,
+    "DC", "PR", "US", "NYC")
 ```
 
 ```{r setup}
@@ -126,7 +132,7 @@ jama.states <- c("NJ", "FL", "MA", "MI")
 
 hhs_states <- cdcfluview::hhs_regions
 hhs_states$state <-
-  state.abb2[match(hhs_states$state_or_territory, state.name2)]
+  state.abbs[match(hhs_states$state_or_territory, state.names)]
 hhs_states$state_region <- hhs_states$region
 
 hhs_states$state_region[hhs_states$state %in% plot.states] <-
@@ -172,7 +178,7 @@ hhs_states.cw <- rbind.data.frame(hhs_states.cw, nyc.state)
 nrevvs.state <- runIfExpired("nrevss_state", ~ cdcfluview::who_nrevss(region = c("state")))
 
 clin <- nrevvs.state[["clinical_labs"]]
-clin$state <- state.abb2[match(clin$region, state.name2)]
+clin$state <- state.abbs[match(clin$region, state.names)]
 
 cw.file <- cdcfluview::hhs_regions
 
@@ -296,7 +302,7 @@ nrevvs.natl$state <- "United States"
 nrevvs.combo <-
   rbind.data.frame(nrevvs.natl, clin4.lags)
 
-nrevvs.combo$state <- state.abb2[match(nrevvs.combo$state, state.name2)]
+nrevvs.combo$state <- state.abbs[match(nrevvs.combo$state, state.names)]
 
 # NYC duplicate
 ny.nrevvs <- nrevvs.combo[nrevvs.combo$state == "NY", ]
@@ -349,7 +355,7 @@ matplot(nrevvs.combo.c[, c("TX", "FL", "NY")], type = "l")
 delays <- readRDS("./outputs/NobBs.complete.iters.rds")
 dimnames(delays)[[3]][dimnames(delays)[[3]] == "US"] <- "United States"
 dimnames(delays)[[3]] <-
-  state.abb2[match(dimnames(delays)[[3]], state.name2)]
+  state.abbs[match(dimnames(delays)[[3]], state.names)]
 
 states2.match <- dimnames(delays)[[3]]
 
@@ -436,7 +442,7 @@ pi.data <- pi.data[!(is.na(pi.data$week_end)), ]
 
 pi.data.not.miss.states <- unique(pi.data.last$state)
 
-pi.data.not.miss.states <- state.abb2[match(pi.data.not.miss.states, state.name2)]
+pi.data.not.miss.states <- state.abbs[match(pi.data.not.miss.states, state.names)]
 
 pi.data.not.miss.states <-
   pi.data.not.miss.states[!is.na(pi.data.not.miss.states)]
@@ -492,7 +498,7 @@ cdc.summary.wk <- cdc.summary.wk[, c("state", "end_week", "nchs.covid.deaths", "
 pi.data.exclude <- pi.data
 
 pi.data.exclude$state <-
-  state.abb2[match(pi.data.exclude$state, state.name2)]
+  state.abbs[match(pi.data.exclude$state, state.names)]
 
 pi.data.exclude <-
   pi.data.exclude[!(pi.data.exclude$state %in% exclude.states), ]
@@ -556,7 +562,7 @@ cdc.comb1 <-
 cdc.comb2 <- cdc.comb1
 
 cdc.comb2$state <-
-  state.abb2[match(cdc.comb2$state, state.name2)]
+  state.abbs[match(cdc.comb2$state, state.names)]
 
 cdc.comb2 <- cdc.comb2[!(cdc.comb2$state %in% exclude.states), ]
 
@@ -654,7 +660,7 @@ names(test.ds.agg) <- c("state", "date", "testN", "deathN")
 
 pop1 <- read.csv("./Data/nst-est2019-01.csv")
 pop1$state_name <- substring(pop1$state_name, 2)
-pop1$state <- state.abb2[match(pop1$state_name, state.name2)]
+pop1$state <- state.abbs[match(pop1$state_name, state.names)]
 pop1$census_bureau_pop_2019 <- gsub(",", "", pop1$census_bureau_pop_2019)
 pop1$census_bureau_pop_2019 <- as.numeric(pop1$census_bureau_pop_2019)
 
@@ -1097,7 +1103,7 @@ par(mfrow = c(3, 3), mar = c(2, 4, 2, 1))
 
 for (i in c("LA", "MD", "CO", "GA", "VA", "TX", "CA", "AZ", "FL")) {
   stack_plot_func(nat.range.ac2.spl[[i]], legend = (i == "LA"), scale.plot = fig.scaling)
-  title(state.name2[match(i, state.abb2)])
+  title(state.names[match(i, state.abbs)])
 }
 ```
 
@@ -1272,9 +1278,9 @@ states <- dimnames(comb2.c)[[1]]
 
 for (i in plot.state.indices) {
   y.range1 <- range(c(pred[i, , ], obs[i, , ], upi[i, , ], 0), na.rm = T)
-  if (states[i] %in% state.abb2) {
+  if (states[i] %in% state.abbs) {
     state.name.plot <-
-      state.name2[match(states[i], state.abb2)]
+      state.names[match(states[i], state.abbs)]
   } else {
     state.name.plot <- states[i]
   }
@@ -1357,7 +1363,7 @@ for (i in 1:length(comb2.spl)) {
   ds1 <- ds1[ds1$week_end_date < as.Date("2020-03-01"), ]
   y.range1 <- range(c(as.matrix(ds1[, c("baseline_all_cause_lower", "baseline_all_cause_upper", "all_cause_deaths")])), na.rm = T)
   state.name.plot <-
-    state.name2[match(unique(ds1$state), state.abb2)]
+    state.names[match(unique(ds1$state), state.abbs)]
 
   plot(
     ds1$week_end_date,
@@ -1426,9 +1432,9 @@ states <- dimnames(comb2.c)[[1]]
 for (i in plot.state.indices) {
   y.range1 <- range(c(pred[i, , ] / denom[i, , ], obs[i, , ] / denom[i, , ], upi[i, , ] / denom[i, , ], 0), na.rm = T)
   y.range1[is.infinite(y.range1)] <- 3
-  if (states[i] %in% state.abb2) {
+  if (states[i] %in% state.abbs) {
     state.name.plot <-
-      state.name2[match(states[i], state.abb2)]
+      state.names[match(states[i], state.abbs)]
   } else {
     state.name.plot <- states[i]
   }
@@ -1584,7 +1590,7 @@ Here we compare the observed vs expected number of deaths due to all causes in e
 ```{r, include=F}
 # ARCHIVE
 ili.data <- runIfExpired("ilinet_state", ~ ilinet(region = c("state")))
-ili.data$state <- state.abb2[match(ili.data$region, state.name2)]
+ili.data$state <- state.abbs[match(ili.data$region, state.names)]
 ili.data <- ili.data[, c("state", "week_start", "ilitotal", "total_patients")]
 ili.data <- ili.data[!is.na(ili.data$total_patients), ]
 ili.data.spl <- split(ili.data, ili.data$state)
@@ -1664,9 +1670,9 @@ par(mfrow = c(2, 2), mar = c(2, 4, 2, 2))
 
 for (i in plot.state.indices) {
   y.range1 <- c(0, 7)
-  if (dimnames(rr.common.states)[[2]][i] %in% state.abb2) {
+  if (dimnames(rr.common.states)[[2]][i] %in% state.abbs) {
     state.name.plot <-
-      state.name2[match(dimnames(rr.common.states)[[2]][i], state.abb2)]
+      state.names[match(dimnames(rr.common.states)[[2]][i], state.abbs)]
   } else {
     state.name.plot <- dimnames(rr.common.states)[[2]][i]
   }
@@ -1738,9 +1744,9 @@ par(mfrow = c(2, 2), mar = c(2, 4, 2, 2))
 
 for (i in plot.state.indices) {
   y.range1 <- c(0, 3)
-  if (dimnames(rr.common.states)[[2]][i] %in% state.abb2) {
+  if (dimnames(rr.common.states)[[2]][i] %in% state.abbs) {
     state.name.plot <-
-      state.name2[match(dimnames(rr.common.states)[[2]][i], state.abb2)]
+      state.names[match(dimnames(rr.common.states)[[2]][i], state.abbs)]
   } else {
     state.name.plot <- dimnames(rr.common.states)[[2]][i]
   }
