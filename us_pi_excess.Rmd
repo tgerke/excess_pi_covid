@@ -402,7 +402,7 @@ nchs.base2.data$Total.Deaths <-
 
 names(nchs.base2.data) <- c("state", "week_end", "all_cause")
 
-nchs.base2.data$week_end <- as.Date(nchs.base2.data$week_end, "%m/%d/%Y")
+nchs.base2.data$week_end <- as_date(nchs.base2.data$week_end, "%m/%d/%Y")
 
 nchs.base2.data$all_cause <-
   as.numeric(nchs.base2.data$all_cause)
