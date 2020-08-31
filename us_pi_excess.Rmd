@@ -389,12 +389,11 @@ ds.func <- function(url) {
   return(ds1)
 }
 
-### CURRENT ERROR on build
 nchs.base2.data <- runIfExpired(
   "nchs_base2_data",
   ~ read.csv("https://data.cdc.gov/api/views/muzy-jte6/rows.csv?accessType=DOWNLOAD")
 )
-nchs.base2.data <- nchs.base2.data[, c("Jurisdiction.of.Occurrence", "Week.Ending.Date", "All.Cause")]
+nchs.base2.data <- nchs.base2.data[, c("jurisdiction_of_occurrence", "week_ending_date", "all_cause")]
 
 names(nchs.base2.data) <- c("State", "week_end", "Total.Deaths")
 
