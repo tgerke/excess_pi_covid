@@ -369,7 +369,7 @@ names(delays.med.m) <- c("weeks.since.death", "state", "prop.complete")
 # Use static version of 2014-2018 data
 # url.nchs.base1 <- "https://data.cdc.gov/resource/pp7x-dyj2.json"
 nchs.base1.data <-
-  read.csv("./Data/nchs_base1_data/Weekly_Counts_of_Deaths_by_State_and_Select_Causes__2014-2018.csv")
+  read.csv("./Data/nchs_base_csvs/Weekly_Counts_of_Deaths_by_State_and_Select_Causes__2014-2018.csv")
 
 nchs.base1.data <-
   nchs.base1.data[, c("Jurisdiction.of.Occurrence", "MMWR.Year", "MMWR.Week", "Week.Ending.Date", "All..Cause", "flag_allcause")]
