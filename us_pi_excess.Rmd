@@ -66,27 +66,14 @@ devtools::install_github("weinbergerlab/ExcessILI")
 ```
 
 ```{r setup}
+library(tidyverse)
 library(ExcessILI)
-library(cdcfluview)
+library(cdcfluview) #may only be using for mmwr_week()
 library(reshape2)
-library(ggplot2)
 library(lubridate)
-library(RColorBrewer)
-library(plotly)
-library(MMWRweek)
-library(readr)
-library(rjson)
 library(htmlTable)
-library(RSocrata)
-library(pdftools)
-library(readr)
 library(abind)
-library(gsubfn)
-library(dplyr)
-library(RCurl)
-library(gifski)
-library(gganimate)
-#library(jsonlite)
+
 set.seed(123)
 source('./functions/ts_plot_func.R')
 source('./functions/format_table.R')
@@ -138,8 +125,7 @@ jama.states <- c('NJ','FL','MA','MI')
 
 ```{r state_region_cw}
 #cross walk file to map  states to hhs regions
-#
-data(cdcfluview::hhs_regions)
+
 hhs_states <- cdcfluview::hhs_regions
 hhs_states$state <-
   state.abb2[match(hhs_states$state_or_territory, state.name2)]
@@ -189,8 +175,6 @@ nrevvs.state <- runIfExpired('nrevss_state', ~cdcfluview::who_nrevss(region = c(
   
   clin <- nrevvs.state[["clinical_labs"]]
   clin$state <- state.abb2[match(clin$region, state.name2)]
-  
-  data(hhs_regions)
   
   cw.file <- cdcfluview::hhs_regions
   
