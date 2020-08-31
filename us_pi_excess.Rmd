@@ -66,13 +66,17 @@ state.names <-
 state.abbs <-
   c(state.abb,
     "DC", "PR", "US", "NYC")
+state_lookup <- tibble(
+  state_name = state.names,
+  state_abb = state.abbs
+)
 ```
 
 ```{r setup}
 library(tidyverse)
 library(ExcessILI) # devtools::install_github("weinbergerlab/ExcessILI")
 library(cdcfluview) # may only be using for mmwr_week()
-library(reshape2)
+library(reshape2) # used for melt(); will eliminate
 library(lubridate)
 library(htmlTable)
 library(abind)
@@ -119,56 +123,41 @@ runIfExpired <- function(storeName, f, maxage = hours(24)) {
 ```
 
 ```{r states_to_plot}
-plot.states <- c("CA", "TX", "FL", "NJ", "NY", "WA", "IL", "GA", "MI", "LA", "MA")
+plot.states <- 
+  c("CA", "TX", "FL", "NJ", "NY", "WA", "IL", "GA", "MI", "LA", "MA")
 
-exclude.states <- c("CT", "NC", "PR") # no up-to-date number
+exclude.states <- 
+  c("CT", "NC", "PR") # no up-to-date number
 
 jama.states <- c("NJ", "FL", "MA", "MI")
-# exclude.states <- c('')
 ```
 
 ```{r state_region_cw}
-# cross walk file to map  states to hhs regions
-
 hhs_states <- cdcfluview::hhs_regions
-hhs_states$state <-
-  state.abbs[match(hhs_states$state_or_territory, state.names)]
-hhs_states$state_region <- hhs_states$region
-
-hhs_states$state_region[hhs_states$state %in% plot.states] <-
-  hhs_states$state[hhs_states$state %in% plot.states]
-
-hhs_states <-
-  hhs_states[, c("state", "state_region")]
-
-hhs_states$state_region <-
-  gsub(" ", "", hhs_states$state_region)
-
-hhs_states.cw <-
-  hhs_states[!is.na(hhs_states$state), ]
+# add state name abbreviations and specify that region is a state region
+hhs_states <- hhs_states %>% 
+  inner_join(state_lookup %>% rename(state_or_territory = state_name)) %>%
+  rename(state = state_abb,
+         state_region = region) %>%
+  mutate(state_region = str_replace(state_region, " ", ""))
+  select(state, state_region)
+# earlier version of code renamed state_region to the state abbreviation 
+# for states that are in plot.states. If an issue later, suggest swapping
+# all state_region codes for state (or simply annotate plots with state)
 
 # Exclude CT, NC, PR
-hhs_states.cw <-
-  hhs_states.cw[!(hhs_states.cw$state %in% exclude.states), ]
+hhs_states_current <- hhs_states %>%
+  filter(!state %in% exclude.states)
 
-hhs_states.cw.spl <- split(
-  hhs_states.cw,
-  hhs_states.cw$state_region
-)
+# create a region label with all included states
+hhs_states_current <- hhs_states_current %>%
+  group_by(state_region) %>%
+  mutate(state_region.lab = paste(unique(state), collapse = ",")) %>%
+  ungroup()
 
-hhs_states.cw.spl <- lapply(hhs_states.cw.spl, function(x) {
-  x$state_region.lab <- paste(x$state, collapse = ",")
-  return(x)
-})
-
-hhs_states.cw <- do.call("rbind.data.frame", hhs_states.cw.spl)
-hhs_states.cw$state_region[hhs_states.cw$state_region != hhs_states.cw$state] <-
-  hhs_states.cw$state_region.lab[hhs_states.cw$state_region != hhs_states.cw$state]
-
-nyc.state <- as.data.frame(matrix(c("NYC", "NYC", "NYC"), nrow = 1))
-names(nyc.state) <- names(hhs_states.cw)
-
-hhs_states.cw <- rbind.data.frame(hhs_states.cw, nyc.state)
+# add a custom row for New York state
+hhs_states_current <- hhs_states_current %>%
+  add_row(state = "NYC", state_region = "NYC", state_region.lab = "NYC") 
 ```
 
 ```{r nrevs_format}
@@ -184,7 +173,7 @@ cw.file <- cdcfluview::hhs_regions
 
 clin2 <- merge(
   clin,
-  hhs_states.cw,
+  hhs_states_current,
   by = "state"
 )
 
@@ -568,7 +557,7 @@ cdc.comb2 <- cdc.comb2[!(cdc.comb2$state %in% exclude.states), ]
 
 cdc.data.ny.separate <- cdc.comb2
 
-cdc.comb2 <- merge(cdc.comb2, hhs_states.cw, by = "state", all = T)
+cdc.comb2 <- merge(cdc.comb2, hhs_states_current, by = "state", all = T)
 
 cdc.comb2$state_region[cdc.comb2$state == "US"] <- "US"
 
@@ -652,7 +641,7 @@ deathN <- sapply(
 test.ds <- cbind.data.frame("state" = test.state, test.dates, "testN.day" = testN, "deathN.day" = deathN)
 test.ds$test.date.wk <- floor_date(as.Date(test.ds$test.dates, "%Y%m%d"), "week")
 
-test.ds <- merge(test.ds, hhs_states.cw, by = "state")
+test.ds <- merge(test.ds, hhs_states_current, by = "state")
 
 test.ds.agg <- aggregate(test.ds[, c("testN.day", "deathN.day")], by = list("state" = test.ds$state, "date" = test.ds$test.date.wk), FUN = sum, na.rm = T)
 
@@ -664,7 +653,7 @@ pop1$state <- state.abbs[match(pop1$state_name, state.names)]
 pop1$census_bureau_pop_2019 <- gsub(",", "", pop1$census_bureau_pop_2019)
 pop1$census_bureau_pop_2019 <- as.numeric(pop1$census_bureau_pop_2019)
 
-pop1.reg <- merge(pop1, hhs_states.cw, by = "state")
+pop1.reg <- merge(pop1, hhs_states_current, by = "state")
 pop2 <- aggregate(pop1.reg[, "census_bureau_pop_2019"], by = list("state" = pop1.reg$state), FUN = sum)
 names(pop2) <- c("state", "census_bureau_pop_2019")
 
@@ -1601,7 +1590,7 @@ state.select <- names(min)[which(min > 0)]
 ili.data <- ili.data[ili.data$state %in% state.select, ]
 ## Run the main analysis function, adjusting for flu using NREVSS data
 
-ili.data2 <- merge(ili.data, hhs_states.cw, by = "state")
+ili.data2 <- merge(ili.data, hhs_states_current, by = "state")
 ili.data2.agg <- aggregate(ili.data2[, c("ilitotal", "total_patients")], by = list("state" = ili.data2$state, "week_start" = ili.data2$week_start), FUN = sum)
 
 ili.data2.agg <- merge(ili.data2.agg, analysis.data2, by.x = c("state", "week_start"), by.y = c("state", "wk_date"))
