@@ -49,6 +49,11 @@ extrap.date <-  as.Date(params$extrap.date)
 count.start.date <- as.Date(params$count.start.date)
 end.data.date <- as.Date(params$end.data.date)
 
+# for debugging
+#extrap.date <-  as.Date('2020-01-26')
+#count.start.date <- as.Date('2020-03-01')
+#end.data.date <- as.Date('2020-08-15')
+
 state.name2 <- c(state.name, 'District of Columbia','Puerto Rico', 'United States', 'New York City')
 state.abb2 <- c(state.abb, 'DC','PR','US','NYC')
 
@@ -134,7 +139,7 @@ hhs_states$state_region <-
 hhs_states.cw <-
   hhs_states[!is.na(hhs_states$state), ]
 
-#Exclude CT
+#Exclude CT, NC, PR
 hhs_states.cw <-
   hhs_states.cw[!(hhs_states.cw$state %in% exclude.states), ]
 
@@ -358,6 +363,7 @@ ds.func <- function(url){
 return(ds1)
   }
 
+### CURRENT ERROR on build
 nchs.base2.data <- runIfExpired('nchs_base2_data', 
  ~read.csv("https://data.cdc.gov/api/views/muzy-jte6/rows.csv?accessType=DOWNLOAD") 
  )
