@@ -56,20 +56,6 @@ end.data.date <- as.Date('2020-08-15')
 # end.data.date <- as.Date(params$end.data.date)
 last.date.format <-
   format(end.data.date, "%b %d, %Y")
-
-# some resources use variations on state names/abbreviations
-# define a more expansive state.names and state.abbs to handle
-state.names <- 
-  c(state.name, 
-    "District of Columbia", "Puerto Rico",
-    "United States", "New York City")
-state.abbs <-
-  c(state.abb,
-    "DC", "PR", "US", "NYC")
-state_lookup <- tibble(
-  state_name = state.names,
-  state_abb = state.abbs
-)
 ```
 
 ```{r setup}
@@ -85,6 +71,22 @@ set.seed(123)
 source("./functions/ts_plot_func.R")
 source("./functions/format_table.R")
 source("./functions/stack_plot.R")
+```
+
+```{r statelookup}
+# some resources use variations on state names/abbreviations
+# define a more expansive state.names and state.abbs to handle
+state.names <- 
+  c(state.name, 
+    "District of Columbia", "Puerto Rico",
+    "United States", "New York City")
+state.abbs <-
+  c(state.abb,
+    "DC", "PR", "US", "NYC")
+state_lookup <- tibble(
+  state_name = state.names,
+  state_abb = state.abbs
+)
 ```
 
 ```{r archivfunc}
@@ -138,124 +140,62 @@ hhs_states <- cdcfluview::hhs_regions
 hhs_states <- hhs_states %>% 
   inner_join(state_lookup %>% rename(state_or_territory = state_name)) %>%
   rename(state = state_abb,
-         state_region = region) %>%
-  mutate(state_region = str_replace(state_region, " ", ""))
-  select(state, state_region)
+         hhs_region = region) %>%
+  mutate(hhs_region = as.numeric(str_replace(hhs_region, "Region ", ""))) %>%
+  select(state, hhs_region)
 # earlier version of code renamed state_region to the state abbreviation 
 # for states that are in plot.states. If an issue later, suggest swapping
-# all state_region codes for state (or simply annotate plots with state)
+# all hhs_region codes for state (or simply annotate plots with state)
 
-# Exclude CT, NC, PR
-hhs_states_current <- hhs_states %>%
-  filter(!state %in% exclude.states)
+# # Exclude CT, NC, PR
+# hhs_states_current <- hhs_states %>%
+#   filter(!state %in% exclude.states)
 
 # create a region label with all included states
-hhs_states_current <- hhs_states_current %>%
-  group_by(state_region) %>%
-  mutate(state_region.lab = paste(unique(state), collapse = ",")) %>%
+hhs_states <- hhs_states %>%
+  group_by(hhs_region) %>%
+  mutate(hhs_region.lab = paste(unique(state), collapse = ",")) %>%
   ungroup()
-
-# add a custom row for New York state
-hhs_states_current <- hhs_states_current %>%
-  add_row(state = "NYC", state_region = "NYC", state_region.lab = "NYC") 
 ```
 
 ```{r nrevs_format}
-# download the NREVSS data
+nrevss.state <- 
+  runIfExpired("nrevss_state", ~ cdcfluview::who_nrevss(region = c("state")))
 
-# ARCHIVE
-nrevvs.state <- runIfExpired("nrevss_state", ~ cdcfluview::who_nrevss(region = c("state")))
-
-clin <- nrevvs.state[["clinical_labs"]]
-clin$state <- state.abbs[match(clin$region, state.names)]
-
-cw.file <- cdcfluview::hhs_regions
-
-clin2 <- merge(
-  clin,
-  hhs_states_current,
-  by = "state"
-)
-
-clin2 <- merge(
-  clin2,
-  cw.file,
-  by.x = "region",
-  by.y = "state_or_territory"
-)
-
-clin2.subsetvars <-
-  c(
-    "region",
-    "region_number",
-    "year",
-    "week",
-    "wk_date",
-    "total_a",
-    "total_b",
-    "total_specimens",
-    "state_region"
-  )
-
-clin2 <- clin2[, clin2.subsetvars]
-
-names(clin2)[1:2] <- c("state", "hhs_region")
-
-clin2$total_specimens <- as.numeric(clin2$total_specimens)
-clin2$total_a <- as.numeric(clin2$total_a)
-clin2$total_b <- as.numeric(clin2$total_b)
+# nrevvs_clin formerly called `clin` and `clin2`
+nrevss_clin <- nrevss.state[["clinical_labs"]]
+# regions are states; assign state abbreviations to these
+nrevss_clin <- nrevss_clin %>%
+  rename(state_name = region) %>%
+  inner_join(state_lookup) %>%
+  rename(state = state_abb) %>%
+  mutate(total_specimens = as.numeric(total_specimens),
+         total_a = as.numeric(total_a),
+         total_b = as.numeric(total_b)) %>%
+  select(-region_type, -state_name, -percent_positive) %>%
+  left_join(hhs_states, by = "state") # append HHS region info
 
 ## Florida doesn't have ILI data, so use regions ILI dat
-#
-# ARCHIVE
-nrevvs_hhs <- runIfExpired("nrevss_hhs", ~ cdcfluview::who_nrevss(region = c("hhs")))
+nrevss_hhs <- 
+  runIfExpired("nrevss_hhs", ~ cdcfluview::who_nrevss(region = c("hhs")))
 
-clin.hhs <- nrevvs_hhs[["clinical_labs"]]
-clin.hhs.subsetvars <-
-  c(
-    "region",
-    "wk_date",
-    "total_a",
-    "total_b",
-    "total_specimens"
-  )
+nrevss_hhs_clin <- nrevss_hhs[["clinical_labs"]]
+nrevss_hhs_clin <- nrevss_hhs_clin %>% 
+  mutate(hhs_region = as.numeric(str_remove(region, "Region "))) %>%
+  rename(hhs_total_a = total_a,
+         hhs_total_b = total_b,
+         hhs_total_specimens = total_specimens) %>%
+  select(hhs_region, wk_date, hhs_total_a, hhs_total_b, hhs_total_specimens)
 
-clin.hhs <- clin.hhs[, clin.hhs.subsetvars]
-clin.hhs$region <- as.numeric(gsub("Region ", "", clin.hhs$region))
-
-names(clin.hhs) <-
-  c(
-    "hhs_region",
-    "wk_date",
-    "hhs_total_a",
-    "hhs_total_b",
-    "hhs_total_specimens"
-  )
-
-clin3 <- merge(
-  clin2,
-  clin.hhs,
-  by = c("hhs_region", "wk_date")
-)
-
-# If no specimens for state, use HHS region estimates
-clin3$total_specimens[is.na(clin3$total_specimens)] <-
-  clin3$hhs_total_specimens[is.na(clin3$total_specimens == 0)]
-
-clin3$total_a[is.na(clin3$total_a)] <-
-  clin3$hhs_total_a[is.na(clin3$total_a)]
-
-clin3$total_b[is.na(clin3$total_b)] <-
-  clin3$hhs_total_b[is.na(clin3$total_b)]
-
-clin3$total_specimens <- as.numeric(clin3$total_specimens)
-
-clin3$total_a <- as.numeric(clin3$total_a)
-clin3$total_b <- as.numeric(clin3$total_b)
-
-clin3$flu_pct_adj <- (clin3$total_a + clin3$total_b) / clin3$total_specimens
-
-clin4 <- clin3[, c("state", "flu_pct_adj", "wk_date")]
+# Join and if no specimen data for state, use HHS region estimates
+nrevss <- 
+  full_join(nrevss_clin, nrevss_hhs_clin, 
+                    by = c("hhs_region", "wk_date")) %>%
+  mutate(total_specimens = coalesce(total_specimens, hhs_total_specimens),
+         total_a = coalesce(total_a, hhs_total_a),
+         total_b = coalesce(total_b, hhs_total_b),
+         flu_pct_adj = (total_a + total_b) / total_specimens) %>%
+  select(state, wk_date, flu_pct_adj)
 
 clin4.lag1 <- clin4
 clin4.lag1$wk_date <- clin4$wk_date + days(7)
