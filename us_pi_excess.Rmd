@@ -195,49 +195,27 @@ nrevss <-
          total_a = coalesce(total_a, hhs_total_a),
          total_b = coalesce(total_b, hhs_total_b),
          flu_pct_adj = (total_a + total_b) / total_specimens) %>%
-  select(state, wk_date, flu_pct_adj)
-
-clin4.lag1 <- clin4
-clin4.lag1$wk_date <- clin4$wk_date + days(7)
-names(clin4.lag1) <- c("state", "flu_pct_adj_lag1", "wk_date")
-
-clin4.lag2 <- clin4
-clin4.lag2$wk_date <- clin4$wk_date + days(14)
-names(clin4.lag2) <- c("state", "flu_pct_adj_lag2", "wk_date")
-
-clin4.lags <- merge(clin4, clin4.lag1, by = c("state", "wk_date"))
-clin4.lags <- merge(clin4.lags, clin4.lag2, by = c("state", "wk_date"))
+  select(state, wk_date, flu_pct_adj) %>%
+  group_by(state) %>% #create 7 and 14 day lags 
+  mutate(flu_pct_adj_lag7 = lag(flu_pct_adj, 1),
+         flu_pct_adj_lag14 = lag(flu_pct_adj, 2)) %>%
+  ungroup() 
 
 ## national flu data
-nrevvs.natl <- runIfExpired("nrevss_national", ~ cdcfluview::who_nrevss(region = c("national")))
-nrevvs.natl <- nrevvs.natl$clinical_labs
-nrevvs.natl <-
-  nrevvs.natl[, c("wk_date", "percent_positive")]
-names(nrevvs.natl) <- c("wk_date", "flu_pct_adj")
-nrevvs.natl$flu_pct_adj <- nrevvs.natl$flu_pct_adj / 100
+nrevss.natl <- 
+  runIfExpired("nrevss_national", ~ cdcfluview::who_nrevss(region = c("national")))
 
-natl.lag1 <- nrevvs.natl
-natl.lag1$wk_date <- natl.lag1$wk_date + days(7)
-names(natl.lag1) <- c("wk_date", "flu_pct_adj_lag1")
+nrevss_natl_clin <- nrevss.natl$clinical_labs
+nrevss_natl_clin <- nrevss_natl_clin %>%
+  mutate(state = "US") %>%
+  select(state, wk_date, percent_positive) %>%
+  rename(flu_pct_adj = percent_positive) %>%
+  mutate(flu_pct_adj = flu_pct_adj / 100) %>%
+  mutate(flu_pct_adj_lag7 = lag(flu_pct_adj, 1),
+         flu_pct_adj_lag14 = lag(flu_pct_adj, 2))
 
-natl.lag2 <- nrevvs.natl
-natl.lag2$wk_date <- natl.lag2$wk_date + days(14)
-names(natl.lag2) <- c("wk_date", "flu_pct_adj_lag2")
+nrevss <- bind_rows(nrevss_natl_clin, nrevss)
 
-nrevvs.natl <- merge(nrevvs.natl, natl.lag1, by = "wk_date")
-nrevvs.natl <- merge(nrevvs.natl, natl.lag2, by = "wk_date")
-nrevvs.natl$state <- "United States"
-
-nrevvs.combo <-
-  rbind.data.frame(nrevvs.natl, clin4.lags)
-
-nrevvs.combo$state <- state.abbs[match(nrevvs.combo$state, state.names)]
-
-# NYC duplicate
-ny.nrevvs <- nrevvs.combo[nrevvs.combo$state == "NY", ]
-ny.nrevvs$state <- "NYC"
-
-nrevvs.combo <- rbind.data.frame(nrevvs.combo, ny.nrevvs)
 
 nrevvs.combo.spl <-
   split(nrevvs.combo, nrevvs.combo$state)
